@@ -25,6 +25,6 @@ export function errorHandler () {
     const template = await fs.readFile('views/errorPage.pug', { encoding: 'utf-8' })
     const title = `${config.get<string>('application.name')} (Express ${utils.version('express')})`
     const fn = pug.compile(template)
-    res.status(500).send(fn({ title, error }))
+    res.status(500).send(fn({ title, error: 'Something went wrong. Please try again later.' }))
   }
 }
