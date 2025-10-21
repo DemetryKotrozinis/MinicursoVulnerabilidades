@@ -7,28 +7,31 @@ import * as challengeUtils from '../lib/challengeUtils'
 import { challenges } from '../data/datacache'
 import { redirectAllowlist } from '../lib/insecurity'
 
+const redirectMap: Record<string, string> = {
+  crypto1: 'https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW',
+  crypto2: 'https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm',
+  crypto3: 'https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6'
+}
+
 export function performRedirect () {
   return ({ query }: Request, res: Response, next: NextFunction) => {
-    const toUrl: string = query.to as string
+    const redirectKey = query.to as string
 
-    if (isRedirectAllowed(toUrl)) {
+    const targetUrl = redirectMap[redirectKey]
+
+    if (targetUrl) {
       challengeUtils.solveIf(challenges.redirectCryptoCurrencyChallenge, () => {
-        return toUrl === 'https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW' ||
-               toUrl === 'https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm' ||
-               toUrl === 'https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6'
+        return Object.values(redirectMap).includes(targetUrl)
       })
 
-      challengeUtils.solveIf(challenges.redirectChallenge, () => {
-        return isUnintendedRedirect(toUrl)
-      })
-
-      res.redirect(toUrl)
+      res.redirect(targetUrl)
     } else {
       res.status(406)
-      next(new Error('Unrecognized target URL for redirect: ' + toUrl))
+      next(new Error('Unrecognized redirect key.'))
     }
   }
 }
+
 
 function isRedirectAllowed (toUrl: string): boolean {
   try {
