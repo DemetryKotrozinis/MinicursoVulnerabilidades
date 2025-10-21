@@ -1,7 +1,3 @@
-/* 
- * Copyright (c) 2014-2025 Bjoern Kimminich & the OWASP Juice Shop contributors.
- * SPDX-License-Identifier: MIT 
- */
 import { type Request, type Response, type NextFunction } from 'express'
 import * as challengeUtils from '../lib/challengeUtils'
 import { challenges } from '../data/datacache'
@@ -9,26 +5,47 @@ import { redirectAllowlist } from '../lib/insecurity'
 
 export function performRedirect () {
   return ({ query }: Request, res: Response, next: NextFunction) => {
-    const toUrl: string = query.to as string
+    const toUrl = query.to as string
 
-    if (isRedirectAllowed(toUrl)) {
-      challengeUtils.solveIf(challenges.redirectCryptoCurrencyChallenge, () => {
-        return toUrl === 'https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW' ||
-               toUrl === 'https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm' ||
-               toUrl === 'https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6'
-      })
+    if (!toUrl) {
+      res.status(400)
+      return next(new Error('Missing redirect target.'))
+    }
 
-      challengeUtils.solveIf(challenges.redirectChallenge, () => {
-        return isUnintendedRedirect(toUrl)
-      })
+    try {
+      const parsedUrl = new URL(toUrl)
 
-      res.redirect(toUrl)
-    } else {
-      res.status(406)
-      next(new Error('Unrecognized target URL for redirect: ' + toUrl))
+      // Verifica se o esquema é seguro (http ou https)
+      const isSafeProtocol = ['http:', 'https:'].includes(parsedUrl.protocol)
+
+      // Verifica se o domínio está na lista de permitidos
+      const isAllowedDomain = redirectAllowlist.includes(parsedUrl.origin)
+
+      if (isSafeProtocol && isAllowedDomain) {
+        challengeUtils.solveIf(challenges.redirectCryptoCurrencyChallenge, () => {
+          return [
+            'https://explorer.dash.org/address/Xr556RzuwX6hg5EGpkybbv5RanJoZN17kW',
+            'https://blockchain.info/address/1AbKfgvw9psQ41NbLi8kufDQTezwG8DRZm',
+            'https://etherscan.io/address/0x0f933ab9fcaaa782d0279c300d73750e1311eae6'
+          ].includes(toUrl)
+        })
+
+        challengeUtils.solveIf(challenges.redirectChallenge, () => {
+          return !isAllowedDomain
+        })
+
+        return res.redirect(toUrl)
+      } else {
+        res.status(406)
+        return next(new Error('Unrecognized or unsafe target URL for redirect.'))
+      }
+    } catch {
+      res.status(400)
+      return next(new Error('Invalid redirect URL format.'))
     }
   }
 }
+
 
 function isRedirectAllowed (toUrl: string): boolean {
   try {
