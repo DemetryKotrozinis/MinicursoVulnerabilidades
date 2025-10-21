@@ -29,21 +29,26 @@ export function login () {
       })
   }
 
-return (req: Request, res: Response, next: NextFunction) => {
-  verifyPreLoginChallenges(req)
+import { QueryTypes } from 'sequelize'
 
-  const email = req.body.email || ''
-  const passwordHash = security.hash(req.body.password || '')
+return async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    verifyPreLoginChallenges(req)
 
-  models.sequelize.query(
-    'SELECT * FROM Users WHERE email = :email AND password = :password AND deletedAt IS NULL',
-    {
-      replacements: { email, password: passwordHash },
-      model: UserModel,
-      plain: true
-    }
-  ).then((authenticatedUser) => {
+    const email = req.body.email || ''
+    const passwordHash = security.hash(req.body.password || '')
+
+    const authenticatedUser = await models.sequelize.query(
+      'SELECT * FROM Users WHERE email = $email AND password = $password AND deletedAt IS NULL',
+      {
+        bind: { email, password: passwordHash },
+        type: QueryTypes.SELECT,
+        plain: true
+      }
+    )
+
     const user = utils.queryResultToJson(authenticatedUser)
+
     if (user.data?.id && user.data.totpSecret !== '') {
       res.status(401).json({
         status: 'totp_token_required',
@@ -54,9 +59,7 @@ return (req: Request, res: Response, next: NextFunction) => {
           })
         }
       })
-    }
-  })
-} else if (user.data?.id) {
+    } else if (user.data?.id) {
           // @ts-expect-error FIXME some properties missing in user - vuln-code-snippet hide-line
           afterLogin(user, res, next)
         } else {
