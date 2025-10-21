@@ -1,20 +1,26 @@
-/*
- * Copyright (c) 2014-2025 Bjoern Kimminich & the OWASP Juice Shop contributors.
- * SPDX-License-Identifier: MIT
- */
-
 import path from 'node:path'
+import fs from 'node:fs'
 import { type Request, type Response, type NextFunction } from 'express'
 
 export function serveLogFiles () {
   return ({ params }: Request, res: Response, next: NextFunction) => {
-    const file = params.file
+    const fileName = params.file
 
-    if (!file.includes('/')) {
-      res.sendFile(path.resolve('logs/', file))
-    } else {
+    const safeFileName = path.basename(fileName)
+
+    const logsDir = path.resolve('logs')
+    const filePath = path.join(logsDir, safeFileName)
+
+    if (!filePath.startsWith(logsDir)) {
       res.status(403)
-      next(new Error('File names cannot contain forward slashes!'))
+      return next(new Error('Access to this file is forbidden.'))
+    }
+
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath)
+    } else {
+      res.status(404)
+      next(new Error('Log file not found.'))
     }
   }
 }
