@@ -7,6 +7,12 @@ export function serveLogFiles () {
     const fileName = params.file
 
     const safeFileName = path.basename(fileName)
+    const regex = /^[a-zA-Z]+$/
+    const isValid = regex.test(safeFileName)
+    if (!isValid) {
+      res.status(400);
+      return next (new Error('Invalid'))
+    }
 
     const logsDir = path.resolve('logs')
     const filePath = path.join(logsDir, safeFileName)
